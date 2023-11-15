@@ -1,10 +1,14 @@
+'''
+This code is using watchdog library coupled with os library.
+'''
+
 import os
 import time
 import datetime
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-directory_to_watch = 'C:\\Users\\semir\\Desktop\\test'
+directory_to_watch = ['C:\\Users\\semir\\Desktop\\test']
 
 '''
 If you require timestamp file to be created elsewhere
@@ -53,3 +57,22 @@ if __name__ == "__main__":
         observer.stop()
 
     observer.join()
+
+
+    '''
+    [Unit]
+Description=Python daemon Service
+ 
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/bin/python3 /home/ubuntu/python-proj/fileCheck.py "my daemon"
+Restart=always
+WorkingDirectory=/home/ubuntu/python-proj
+Nice=19
+LimitNOFILE=16384
+ 
+[Install]
+WantedBy=multi-user.target
+    '''
