@@ -1,5 +1,6 @@
 '''
-This code is using watchdog library coupled with os library.
+This code is using watchdog library coupled with os library
+with a built-in file event handler
 '''
 
 import os
