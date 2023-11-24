@@ -1,9 +1,22 @@
+'''
+    This code uses os library without watchdog
+    ## -exclusion list (if not in exclusion list, NOTIFY!!)
+    ## logging checked files 
+    '''
+
+
 import os
 import time
 import datetime
+import logging
+import argparse # argparse is next step, handle multi directory trees
 
 directory_to_watch = 'C:\\Users\\semir\\Desktop\\test'
-timestamp_file_path = 'C:\\Users\\semir\\Desktop\\test\\timestamp.log'
+timestamp_file_path = 'C:\\Users\\semir\\Desktop\\test\\timestamp(checked).log'
+
+# Configure logging, loggins is appended to a file
+logging.basicConfig(filename=timestamp_file_path, level=logging.DEBUG, format='%(asctime)s - %(message)s')
+
 
 def check_existing_files(checked_files):
     current_time = datetime.datetime.now()
@@ -18,8 +31,10 @@ def check_existing_files(checked_files):
 
             time_difference = current_time - file_creation_time
             if time_difference.total_seconds() > 10 and filename not in checked_files:
-                print(f"File '{filename}' has been in the directory for more than ten seconds.")
+                logging.info(f"File '{filename}' has been in the directory for more than ten seconds.")
+                checked_files.add(filename)
 
+    return checked_files
 
 def log_created_file(file_path):
     current_time = datetime.datetime.now()
@@ -27,13 +42,16 @@ def log_created_file(file_path):
         fh.write(f"File {file_path} added at {current_time}\n")
 
 if __name__ == "__main__":
+    # Initial check for existing files
     checked_files = set()
-    time.sleep(5)
+    checked_files = check_existing_files(checked_files)
+    print("Initial checked_files:", checked_files)
 
     try:
         while True:
-            check_existing_files(checked_files)  # Periodic check
-            time.sleep(30)  # Check every 30 seconds
+            checked_files = check_existing_files(checked_files)  # Periodic check
+            
+            print("Updated checked_files:", checked_files)
 
             for root, subdirs, files in os.walk(directory_to_watch):
                 for filename in files:
@@ -41,5 +59,7 @@ if __name__ == "__main__":
                     if os.path.isfile(file_path) and filename not in checked_files:
                         checked_files.add(filename)
                         log_created_file(file_path)
+
+            time.sleep(20)  # Check every 20 seconds
     except KeyboardInterrupt:
         pass
