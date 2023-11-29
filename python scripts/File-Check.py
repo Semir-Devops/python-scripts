@@ -11,7 +11,7 @@ import os
 import time
 import datetime
 import logging
-import argparse # argparse is next step, handle multi directory trees
+import argparse # handle multi directory trees
 
 directory_to_watch = 'C:\\Users\\semir\\Desktop\\test'
 timestamp_file_path = 'C:\\Users\\semir\\Desktop\\test\\timestamp(checked).log'

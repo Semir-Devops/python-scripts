@@ -1,0 +1,15 @@
+[Unit]
+Description=Demo Service
+ 
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/bin/python3 /path/to/your/script/name_of_script.py "my daemon"
+Restart=always
+WorkingDirectory=Directory/To/Operate/On
+Nice=19
+LimitNOFILE=16384
+ 
+[Install]
+WantedBy=multi-user.target
