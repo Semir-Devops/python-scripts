@@ -1,7 +1,9 @@
 '''
-    This code uses os library without watchdog
-    ## -exclusion list (if not in exclusion list, NOTIFY!!)
-    ## logging checked files 
+    This program is designed to walk a directory tree 
+    & check each file within it to see if it has been in the directory
+    for more than a specified time
+    This program is run using the CLI & its required arguments
+    Language: Python
     '''
 
 
