@@ -38,10 +38,15 @@ def check_existing_files(checked_files, directory_to_watch, log_file_path):
                 continue
 
             time_difference = current_time - file_creation_time
+            print(f"Checking file '{filename}': time_difference = {time_difference.total_seconds()} seconds")
+
             if time_difference.total_seconds() > 10 and filename not in checked_files:
+                print(f"File '{filename}' has been in the directory for +10 secs")
                 logging.info(f"File '{filename}' has been in the directory for more than ten seconds.")
                 checked_files.add(filename)
-                log_created_file(file_path, log_file_path)
+                log_created_file(filename, log_file_path)
+                logging.getLogger().handlers[0].flush()
+                logging.getLogger().handlers[0].close()
 
     return checked_files
 
@@ -60,15 +65,18 @@ if __name__ == "__main__":
 
     # Configure logging, logs are appended to a file
     logging.basicConfig(filename=args.lf, level=logging.DEBUG,
-                    format='%(asctime)s - %(message)s')
+                    format='%(asctime)s - %(message)s',
+                    filemode='a+')
+    logging.getLogger().setLevel(logging.DEBUG)
     logging.info("Script started")
+    logging.getLogger().handlers[0].flush()
+    logging.getLogger().handlers[0].close()
 
 try:
     while True:
-        checked_files = check_existing_files(checked_files, args.dirToW, args.lf)
-        print("Updated checked_files:", checked_files)
-
         # Periodic check, specify in argument, default 60 seconds
         time.sleep(args.int)
+        checked_files = check_existing_files(checked_files, args.dirToW, args.lf)
+        print("another loop")
 except KeyboardInterrupt:
     pass
