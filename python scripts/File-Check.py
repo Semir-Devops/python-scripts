@@ -24,7 +24,7 @@ def parse_arguments():
     #interval argparse
     return parser.parse_args()
 
-def check_existing_files(checked_files, directory_to_watch):
+def check_existing_files(checked_files, directory_to_watch, log_file_path):
     current_time = datetime.datetime.now()
 
     directory_to_watch_path = Path(directory_to_watch).resolve()
@@ -41,6 +41,7 @@ def check_existing_files(checked_files, directory_to_watch):
             if time_difference.total_seconds() > 10 and filename not in checked_files:
                 logging.info(f"File '{filename}' has been in the directory for more than ten seconds.")
                 checked_files.add(filename)
+                log_created_file(file_path, log_file_path)
 
     return checked_files
 
@@ -54,25 +55,18 @@ if __name__ == "__main__":
 
     # Initial check for existing files
     checked_files = set()
-    checked_files = check_existing_files(checked_files, args.dirToW)
+    checked_files = check_existing_files(checked_files, args.dirToW, args.lf)
     print("Initial checked_files:", checked_files)
 
     # Configure logging, logs are appended to a file
     logging.basicConfig(filename=args.lf, level=logging.DEBUG,
                     format='%(asctime)s - %(message)s')
+    logging.info("Script started")
 
 try:
     while True:
-        checked_files = check_existing_files(checked_files, args.dirToW)
-
+        checked_files = check_existing_files(checked_files, args.dirToW, args.lf)
         print("Updated checked_files:", checked_files)
-
-        for root, subdirs, files in os.walk(args.dirToW):
-            for filename in files:
-                file_path = os.path.join(root, filename)
-                if os.path.isfile(file_path) and filename not in checked_files:
-                    checked_files.add(filename)
-                    log_created_file(file_path, args.lf)
 
         # Periodic check, specify in argument, default 60 seconds
         time.sleep(args.int)
