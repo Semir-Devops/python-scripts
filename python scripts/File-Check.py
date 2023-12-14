@@ -15,14 +15,27 @@ import argparse
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='directory tree & file logging')
-    parser.add_argument("--directory", "-d", required=True, type=str, default=['.'],
-                    dest="dirToW", help="directory to watch, specify path")
-    parser.add_argument("--log-file", "-lf", required=True, type=str, default=['.'],
-                    dest="lf", help="log file location, specify path")
+    parser.add_argument("--directory", "-d", required=True, type=str, default='.',
+                        dest="dirToW", help="directory to watch, specify path")
+    parser.add_argument("--log-file", "-lf", required=True, type=str, default='.',
+                        dest="lf", help="log file location, specify path")
     parser.add_argument("--interval", "-i", type=int, default=60,
                         dest="int", help="interval for periodic checks (in seconds)")
-    #interval argparse
+    # interval argparse
     return parser.parse_args()
+
+def configure_logging(log_file_path):
+    logging.basicConfig(filename=log_file_path, level=logging.DEBUG,
+                        format='%(asctime)s - %(message)s',
+                        filemode='a+')
+
+    # Add a stream handler to display log messages to the console
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(message)s')
+    console_handler.setFormatter(formatter)
+    logging.getLogger().addHandler(console_handler)
+
 
 def check_existing_files(checked_files, directory_to_watch, log_file_path):
     current_time = datetime.datetime.now()
@@ -38,45 +51,44 @@ def check_existing_files(checked_files, directory_to_watch, log_file_path):
                 continue
 
             time_difference = current_time - file_creation_time
-            print(f"Checking file '{filename}': time_difference = {time_difference.total_seconds()} seconds")
-
             if time_difference.total_seconds() > 10 and filename not in checked_files:
-                print(f"File '{filename}' has been in the directory for +10 secs")
-                logging.info(f"File '{filename}' has been in the directory for more than ten seconds.")
+                log_msg = f"File '{filename}' has been in the directory for more than ten seconds."
+                logging.info(log_msg)
                 checked_files.add(filename)
                 log_created_file(filename, log_file_path)
-                logging.getLogger().handlers[0].flush()
-                logging.getLogger().handlers[0].close()
 
     return checked_files
 
 def log_created_file(file_path, lf):
     current_time = datetime.datetime.now()
-    with open(lf, "a") as fh:
-        fh.write(f"File {file_path} added at {current_time}\n")
+    log_message = f"File {file_path} added at {current_time}"
+
+    try:
+        logging.info(log_message)
+    except Exception as e:
+        print(f"Error logging message: {e}")
 
 if __name__ == "__main__":
     args = parse_arguments()
+
+    # Configure logging, logs are appended to a file
+    configure_logging(args.lf)
 
     # Initial check for existing files
     checked_files = set()
     checked_files = check_existing_files(checked_files, args.dirToW, args.lf)
     print("Initial checked_files:", checked_files)
 
-    # Configure logging, logs are appended to a file
-    logging.basicConfig(filename=args.lf, level=logging.DEBUG,
-                    format='%(asctime)s - %(message)s',
-                    filemode='a+')
-    logging.getLogger().setLevel(logging.DEBUG)
+    print(f"Log file path: {args.lf}")
     logging.info("Script started")
-    logging.getLogger().handlers[0].flush()
-    logging.getLogger().handlers[0].close()
 
-try:
-    while True:
-        # Periodic check, specify in argument, default 60 seconds
-        time.sleep(args.int)
-        checked_files = check_existing_files(checked_files, args.dirToW, args.lf)
-        print("another loop")
-except KeyboardInterrupt:
-    pass
+    try:
+        while True:
+            # Periodic check, specify in argument, default 60 seconds
+            time.sleep(args.int)
+            checked_files = check_existing_files(checked_files, args.dirToW, args.lf)
+            print("another loop")
+    except Exception as e:
+        print(f"Error in main loop: {e}")
+    except KeyboardInterrupt:
+        pass
