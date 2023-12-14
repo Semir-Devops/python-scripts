@@ -21,6 +21,9 @@ def parse_arguments():
                         dest="lf", help="log file location, specify path")
     parser.add_argument("--interval", "-i", type=int, default=60,
                         dest="int", help="interval for periodic checks (in seconds)")
+    parser.add_argument("--exclude-file", "-ef", type=str,dest="excl_file",
+                        help="list of files to exclude from fileCheck")
+
     # interval argparse
     return parser.parse_args()
 
@@ -36,8 +39,18 @@ def configure_logging(log_file_path):
     console_handler.setFormatter(formatter)
     logging.getLogger().addHandler(console_handler)
 
+def read_exclude_list(exclude_file):
+    exclude_list = set()
+    if exclude_file:
+        try:
+            with open(exclude_file, 'r') as file:
+                exclude_list.update(file.read().splitlines())
+        except Exception as e:
+            print(f"Error reading exclude file: {e}")
+    return exclude_list
 
-def check_existing_files(checked_files, directory_to_watch, log_file_path):
+
+def check_existing_files(checked_files, directory_to_watch, log_file_path, exclusion_list):
     current_time = datetime.datetime.now()
 
     directory_to_watch_path = Path(directory_to_watch).resolve()
@@ -51,7 +64,7 @@ def check_existing_files(checked_files, directory_to_watch, log_file_path):
                 continue
 
             time_difference = current_time - file_creation_time
-            if time_difference.total_seconds() > 10 and filename not in checked_files:
+            if time_difference.total_seconds() > 10 and filename not in checked_files and filename not in exclusion_list:
                 log_msg = f"File '{filename}' has been in the directory for more than ten seconds."
                 logging.info(log_msg)
                 checked_files.add(filename)
@@ -76,19 +89,18 @@ if __name__ == "__main__":
 
     # Initial check for existing files
     checked_files = set()
-    checked_files = check_existing_files(checked_files, args.dirToW, args.lf)
+    exclude_list = read_exclude_list(args.excl_file)
+    checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list)
     print("Initial checked_files:", checked_files)
 
     print(f"Log file path: {args.lf}")
-    logging.info("Script started")
 
     try:
         while True:
             # Periodic check, specify in argument, default 60 seconds
             time.sleep(args.int)
-            checked_files = check_existing_files(checked_files, args.dirToW, args.lf)
+            exclude_list = read_exclude_list(args.excl_file)
+            checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list)
             print("another loop")
-    except Exception as e:
-        print(f"Error in main loop: {e}")
     except KeyboardInterrupt:
         pass
