@@ -19,12 +19,11 @@ def parse_arguments():
                         dest="dirToW", help="directory to watch, specify path")
     parser.add_argument("--log-file", "-lf", required=True, type=str, default='.',
                         dest="lf", help="log file location, specify path")
-    parser.add_argument("--interval", "-i", type=int, default=60,
-                        dest="int", help="interval for periodic checks (in seconds)")
-    parser.add_argument("--exclude-file", "-ef", type=str,dest="excl_file",
+    parser.add_argument("--interval", "-i", type=int, default=60, dest="intl",
+                        help="interval for periodic checks (in seconds)")
+    parser.add_argument("--exclude-file", "-ef", type=str, dest="excl_file",
                         help="list of files to exclude from fileCheck")
 
-    # interval argparse
     return parser.parse_args()
 
 def configure_logging(log_file_path):
@@ -44,7 +43,8 @@ def read_exclude_list(exclude_file):
     if exclude_file:
         try:
             with open(exclude_file, 'r') as file:
-                exclude_list.update(file.read().splitlines())
+                # Read full file paths and resolve them
+                exclude_list.update(Path(line.strip()).resolve() for line in file)
         except Exception as e:
             print(f"Error reading exclude file: {e}")
     return exclude_list
@@ -64,11 +64,12 @@ def check_existing_files(checked_files, directory_to_watch, log_file_path, exclu
                 continue
 
             time_difference = current_time - file_creation_time
-            if time_difference.total_seconds() > 10 and filename not in checked_files and filename not in exclusion_list:
-                log_msg = f"File '{filename}' has been in the directory for more than ten seconds."
+            full_path = Path(file_path).resolve()
+            if time_difference.total_seconds() > 10 and full_path not in checked_files and full_path not in exclusion_list:
+                log_msg = f"File '{full_path}' has been in the directory for more than ten seconds."
                 logging.info(log_msg)
                 checked_files.add(filename)
-                log_created_file(filename, log_file_path)
+                log_created_file(full_path, log_file_path)
 
     return checked_files
 
@@ -98,7 +99,7 @@ if __name__ == "__main__":
     try:
         while True:
             # Periodic check, specify in argument, default 60 seconds
-            time.sleep(args.int)
+            time.sleep(args.intl)
             exclude_list = read_exclude_list(args.excl_file)
             checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list)
             print("another loop")
