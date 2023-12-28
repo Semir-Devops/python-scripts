@@ -65,7 +65,7 @@ def check_existing_files(checked_files, directory_to_watch, log_file_path, exclu
 
             time_difference = current_time - file_creation_time
             full_path = Path(file_path).resolve()
-            if time_difference.total_seconds() > 10 and full_path not in checked_files and full_path not in exclusion_list:
+            if time_difference.total_seconds() > 10.0 and full_path not in checked_files and full_path not in exclusion_list:
                 log_msg = f"File '{full_path}' has been in the directory for more than ten seconds."
                 logging.info(log_msg)
                 checked_files.add(filename)
