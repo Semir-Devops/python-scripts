@@ -14,3 +14,16 @@ if they are, log this info to a file in a basic fashion.
 To run any script as a service/daemon in a linux machine,<br/>
 I attached a mock service file that must be added into your systemd file system<br/>
 to run this script in the background, configure the file as needed.
+
+<hr/>
+
+<h2>How to test the script:</h2>
+To test the fileCheck.py script, I have created a test script.<br/>
+This test is using Pytest testing framework to aid in testing the script before deploying to a production environment.<br/>
+To run the test against the fileCheck, you must:
+ 
+ - You must install the pytest framework using the pip installation package
+ - use pytest CLI commands to run the test (preferably have both scripts in the same directory)
+
+
+ 
