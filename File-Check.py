@@ -82,7 +82,7 @@ def log_created_file(file_path, lf):
     except Exception as e:
         print(f"Error logging message: {e}")
 
-if __name__ == "__main__":
+def main():
     args = parse_arguments()
 
     # Configure logging, logs are appended to a file
@@ -105,3 +105,6 @@ if __name__ == "__main__":
             print("another loop")
     except KeyboardInterrupt:
         pass
+
+if __name__ == "__main__":
+    main()
