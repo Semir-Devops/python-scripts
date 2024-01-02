@@ -25,5 +25,22 @@ To run the test against the fileCheck, you must:
  - You must install the pytest framework using the pip installation package
  - use pytest CLI commands to run the test (preferably have both scripts in the same directory)
 
+Pip installation (Linux & with admin permissions):
+```
+apt install python3-pip
+```
 
- 
+
+PyTest installation (Linux & with admin permissions):
+```
+pip install pytest
+```
+
+PyTest script run command:
+```
+pytest name_of_test_script_test.py
+```
+
+> [!NOTE]  
+> It is a good practice to name the test script after the script you are running the test on,<br/>
+>followed by "_test.py", to allow you to search for pytest scripts efficiently when needed.
