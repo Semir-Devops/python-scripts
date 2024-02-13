@@ -23,6 +23,8 @@ def parse_arguments():
                         help="interval for periodic checks (in seconds)")
     parser.add_argument("--exclude-file", "-ef", type=str, dest="excl_file",
                         help="list of files to exclude from fileCheck")
+    parser.add_argument("--expired-folder", "-exp", type=str, required=True, dest="exp_folder",
+                        help="folder to move expired files to")
 
     return parser.parse_args()
 
@@ -50,7 +52,7 @@ def read_exclude_list(exclude_file):
     return exclude_list
 
 
-def check_existing_files(checked_files, directory_to_watch, log_file_path, exclusion_list):
+def check_existing_files(checked_files, directory_to_watch, log_file_path, exclusion_list, exp_folder):
     current_time = datetime.datetime.now()
 
     directory_to_watch_path = Path(directory_to_watch).resolve()
@@ -65,20 +67,25 @@ def check_existing_files(checked_files, directory_to_watch, log_file_path, exclu
 
             time_difference = current_time - file_creation_time
             full_path = Path(file_path).resolve()
-            if time_difference.total_seconds() > 10.0 and full_path not in checked_files and full_path not in exclusion_list:
+            if (int(time_difference.total_seconds()) > 10 and full_path not in checked_files and full_path not in exclusion_list):
                 log_msg = f"File '{full_path}' has been in the directory for more than ten seconds."
                 logging.info(log_msg)
                 checked_files.add(full_path)
-                log_created_file(full_path, log_file_path)
+                log_created_file(full_path, log_file_path, exp_folder)
 
     return checked_files
 
-def log_created_file(file_path, lf):
+def log_created_file(file_path, lf, exp_folder):
     current_time = datetime.datetime.now()
     log_message = f"File {file_path} added at {current_time}"
+    log_timestamp = current_time.strftime("%Y%m%d%H%M%S")
 
     try:
         logging.info(log_message)
+        # Copy the file to the expired files folder
+        expired_file_path = Path(exp_folder) / f"{log_timestamp}_{Path(file_path).name}"
+        Path(expired_file_path).write_text(f"str{file_path}\n")
+        logging.info(f"File {file_path} copied to {expired_file_path}")
     except Exception as e:
         print(f"Error logging message: {e}")
 
@@ -91,8 +98,7 @@ def main():
     # Initial check for existing files
     checked_files = set()
     exclude_list = read_exclude_list(args.excl_file)
-    checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list)
-    print("Initial checked_files:", checked_files)
+    checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list, args.exp_folder)
 
     print(f"Log file path: {args.lf}")
 
@@ -101,7 +107,7 @@ def main():
             # Periodic check, specify in argument, default 60 seconds
             time.sleep(args.intl)
             exclude_list = read_exclude_list(args.excl_file)
-            checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list)
+            checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list, args.exp_folder)
             print("another loop")
     except KeyboardInterrupt:
         pass
