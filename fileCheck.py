@@ -18,13 +18,15 @@ def parse_arguments():
     parser.add_argument("--directory", "-d", required=True, type=str, default='.',
                         dest="dirToW", help="directory to watch, specify path")
     parser.add_argument("--log-file", "-lf", required=True, type=str, default='.',
-                        dest="lf", help="log file location, specify path")
+                        dest="lf", help="log file location with full path")
     parser.add_argument("--interval", "-i", type=int, default=60, dest="intl",
                         help="interval for periodic checks (in seconds)")
     parser.add_argument("--exclude-file", "-ef", type=str, dest="excl_file",
                         help="list of files to exclude from fileCheck")
     parser.add_argument("--expired-folder", "-exp", type=str, required=True, dest="exp_folder",
                         help="folder to move expired files to")
+    parser.add_argument("--metadata-folder", "-meta", type=str, dest="meta_folder",
+                        help="folder to move metadata of files to")
 
     return parser.parse_args()
 
@@ -78,12 +80,12 @@ def check_existing_files(checked_files, directory_to_watch, log_file_path, exclu
 def log_created_file(file_path, lf, exp_folder):
     current_time = datetime.datetime.now()
     log_message = f"File {file_path} added at {current_time}"
-    log_timestamp = current_time.strftime("%Y%m%d%H%M%S")
+    log_timestamp = current_time.strftime("%Y.%m.%d - %H.%M.%S")
 
     try:
         logging.info(log_message)
         # Copy the file to the expired files folder
-        expired_file_path = Path(exp_folder) / f"{log_timestamp}_{Path(file_path).name}"
+        expired_file_path = Path(exp_folder) / f"{log_timestamp}_{Path(file_path).stem}.txt"
         Path(expired_file_path).write_text(f"str{file_path}\n")
         logging.info(f"File {file_path} copied to {expired_file_path}")
     except Exception as e:
