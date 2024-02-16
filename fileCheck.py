@@ -25,8 +25,8 @@ def parse_arguments():
                         help="list of files to exclude from fileCheck")
     parser.add_argument("--expired-folder", "-exp", type=str, required=True, dest="exp_folder",
                         help="folder to move expired files to")
-    parser.add_argument("--metadata-folder", "-meta", type=str, dest="meta_folder",
-                        help="folder to move metadata of files to")
+    parser.add_argument("--metadata-file", "-meta", type=str, required=True, dest="meta_file",
+                        help="metadata file to help delete expired files")
 
     return parser.parse_args()
 
@@ -54,7 +54,7 @@ def read_exclude_list(exclude_file):
     return exclude_list
 
 
-def check_existing_files(checked_files, directory_to_watch, log_file_path, exclusion_list, exp_folder):
+def check_existing_files(checked_files, directory_to_watch, log_file_path, exclusion_list, exp_folder, meta_file):
     current_time = datetime.datetime.now()
 
     directory_to_watch_path = Path(directory_to_watch).resolve()
@@ -73,23 +73,42 @@ def check_existing_files(checked_files, directory_to_watch, log_file_path, exclu
                 log_msg = f"File '{full_path}' has been in the directory for more than ten seconds."
                 logging.info(log_msg)
                 checked_files.add(full_path)
-                log_created_file(full_path, log_file_path, exp_folder)
+                log_created_file(full_path, log_file_path, exp_folder, meta_file)
 
     return checked_files
 
-def log_created_file(file_path, lf, exp_folder):
+def log_created_file(file_path, lf, exp_folder, meta_file):
     current_time = datetime.datetime.now()
     log_message = f"File {file_path} added at {current_time}"
-    log_timestamp = current_time.strftime("%Y.%m.%d - %H.%M.%S")
+    log_timestamp = current_time.strftime("%Y.%m.%d_%H.%M.%S.%f")
 
     try:
         logging.info(log_message)
         # Copy the file to the expired files folder
-        expired_file_path = Path(exp_folder) / f"{log_timestamp}_{Path(file_path).stem}.txt"
-        Path(expired_file_path).write_text(f"str{file_path}\n")
-        logging.info(f"File {file_path} copied to {expired_file_path}")
+        expired_file_path = Path(exp_folder) / f"{log_timestamp}.txt"
+        Path(expired_file_path).write_text(f"{file_path}\n")
+
+        # Write to metadata file
+        with open(meta_file, 'a') as f:
+            f.write(f"{Path(expired_file_path).name}, {file_path}\n")
+
     except Exception as e:
         print(f"Error logging message: {e}")
+
+def delete_expired_files(exp_folder, meta_file):
+    # Read existing entries from the metadata file
+    existing_entries = set()
+    with open(meta_file, 'r') as f:
+        for line in f:
+            filename, _ = line.strip().split(', ')
+            existing_entries.add(filename)
+
+    # Check for files in the expired folder that are not in the metadata file
+    for filename in os.listdir(exp_folder):
+        if filename not in existing_entries:
+            file_path = os.path.join(exp_folder, filename)
+            os.remove(file_path)
+            logging.info(f"Deleted file {file_path}")
 
 def main():
     args = parse_arguments()
@@ -100,7 +119,7 @@ def main():
     # Initial check for existing files
     checked_files = set()
     exclude_list = read_exclude_list(args.excl_file)
-    checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list, args.exp_folder)
+    checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file)
 
     print(f"Log file path: {args.lf}")
 
@@ -109,7 +128,8 @@ def main():
             # Periodic check, specify in argument, default 60 seconds
             time.sleep(args.intl)
             exclude_list = read_exclude_list(args.excl_file)
-            checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list, args.exp_folder)
+            checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file)
+            delete_expired_files(args.exp_folder, args.meta_file)
             print("another loop")
     except KeyboardInterrupt:
         pass
