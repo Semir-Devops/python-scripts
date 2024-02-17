@@ -53,15 +53,18 @@ def read_exclude_list(exclude_file):
             print(f"Error reading exclude file: {e}")
     return exclude_list
 
-
 def check_existing_files(checked_files, directory_to_watch, log_file_path, exclusion_list, exp_folder, meta_file):
     current_time = datetime.datetime.now()
 
     directory_to_watch_path = Path(directory_to_watch).resolve()
 
+    # Set to store files in directory
+    current_files = set()
     for root, subdirs, files in os.walk(directory_to_watch_path):
         for filename in files:
             file_path = os.path.join(root, filename)
+            current_files.add(file_path)
+
             try:
                 file_creation_time = datetime.datetime.fromtimestamp(os.path.getctime(file_path))
             except FileNotFoundError:
@@ -85,7 +88,7 @@ def log_created_file(file_path, lf, exp_folder, meta_file):
     try:
         logging.info(log_message)
         # Copy the file to the expired files folder
-        expired_file_path = Path(exp_folder) / f"{log_timestamp}.txt"
+        expired_file_path = Path(exp_folder) / f"{log_timestamp}_{Path(file_path).stem}.txt"
         Path(expired_file_path).write_text(f"{file_path}\n")
 
         # Write to metadata file
@@ -95,20 +98,25 @@ def log_created_file(file_path, lf, exp_folder, meta_file):
     except Exception as e:
         print(f"Error logging message: {e}")
 
-def delete_expired_files(exp_folder, meta_file):
-    # Read existing entries from the metadata file
-    existing_entries = set()
-    with open(meta_file, 'r') as f:
-        for line in f:
-            filename, _ = line.strip().split(', ')
-            existing_entries.add(filename)
+def delete_files(directory_to_watch, exp_folder):
+    checked_files = set()
+    for root, subdirs, files in os.walk(directory_to_watch):
+        for filename in files:
+            file_path = os.path.join(root, filename)
+            checked_files.add(file_path)
 
-    # Check for files in the expired folder that are not in the metadata file
-    for filename in os.listdir(exp_folder):
-        if filename not in existing_entries:
-            file_path = os.path.join(exp_folder, filename)
-            os.remove(file_path)
-            logging.info(f"Deleted file {file_path}")
+    expired_files = os.listdir(exp_folder)
+    for expired_file in expired_files:
+        expired_file_path = os.path.join(exp_folder, expired_file)
+        if os.path.isfile(expired_file_path):
+            # Read the content of the expired file
+            with open(expired_file_path, 'r') as f:
+                expired_content = f.read().strip()
+
+            # Check if the expired content (full path) is not in the checked_files (full path of dirToW files)
+            if expired_content not in checked_files:
+                os.remove(expired_file_path)
+                logging.info(f"Deleted expired file: {expired_file_path}")
 
 def main():
     args = parse_arguments()
@@ -120,7 +128,6 @@ def main():
     checked_files = set()
     exclude_list = read_exclude_list(args.excl_file)
     checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file)
-
     print(f"Log file path: {args.lf}")
 
     try:
@@ -129,7 +136,7 @@ def main():
             time.sleep(args.intl)
             exclude_list = read_exclude_list(args.excl_file)
             checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file)
-            delete_expired_files(args.exp_folder, args.meta_file)
+            delete_files(args.dirToW, args.exp_folder)
             print("another loop")
     except KeyboardInterrupt:
         pass
