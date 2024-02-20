@@ -98,7 +98,7 @@ def log_created_file(file_path, lf, exp_folder, meta_file):
     except Exception as e:
         print(f"Error logging message: {e}")
 
-def delete_files(directory_to_watch, exp_folder):
+def delete_files(directory_to_watch, exp_folder, meta_file):
     checked_files = set()
     for root, subdirs, files in os.walk(directory_to_watch):
         for filename in files:
@@ -118,6 +118,14 @@ def delete_files(directory_to_watch, exp_folder):
                 os.remove(expired_file_path)
                 logging.info(f"Deleted expired file: {expired_file_path}")
 
+                with open(meta_file, 'r') as f:
+                    lines = f.readlines()
+                with open(meta_file, 'w') as f:
+                    for line in lines:
+                        if expired_file in line:
+                            continue
+                        f.write(line)
+
 def main():
     args = parse_arguments()
 
@@ -136,7 +144,7 @@ def main():
             time.sleep(args.intl)
             exclude_list = read_exclude_list(args.excl_file)
             checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file)
-            delete_files(args.dirToW, args.exp_folder)
+            delete_files(args.dirToW, args.exp_folder, args.meta_file)
             print("another loop")
     except KeyboardInterrupt:
         pass
