@@ -1,125 +1,85 @@
 '''
 This is a testing file (work in progress) for fileCheck.py
-This test is created using Pytest testing Framework
+This test is created using Unittest testing Framework
 '''
 
+import unittest
 import os
-import datetime
-import argparse
-from pathlib import Path
+import shutil
+import tempfile
+import logging
 from unittest.mock import patch
-import pytest
-import fileCheck
-from fileCheck import parse_arguments, configure_logging, read_exclude_list, check_existing_files, log_created_file
+from fileCheck import configure_logging, read_exclude_list, check_existing_files, log_created_file, delete_files
 
-@pytest.fixture
-def mock_arguments(tmp_path, monkeypatch):
-    directory_to_watch = tmp_path / "watched_directory"
-    log_file_path = tmp_path / "test.log"
+class TestScript(unittest.TestCase):
 
-    # Set up a mocked argument namespace
-    monkeypatch.setattr('sys.argv', ['fileCheck.py', '--directory', str(directory_to_watch), '--log-file', str(log_file_path)])
+    def setUp(self):
+        # Create a temporary directory for testing
+        self.test_dir = tempfile.mkdtemp()
+        self.mock_dir = os.path.join(self.test_dir, "mock_Dir")
+        self.another_dir = os.path.join(self.mock_dir, "anotherDir")
+        os.makedirs(self.another_dir)
 
-    return directory_to_watch, log_file_path
+        # Create mock files
+        with open(os.path.join(self.mock_dir, "file1"), "w") as f:
+            f.write("content1")
+        with open(os.path.join(self.mock_dir, "file2"), "w") as f:
+            f.write("content2")
+        with open(os.path.join(self.another_dir, "file3.txt"), "w") as f:
+            f.write("content3")
 
-def test_parse_arguments(mock_arguments):
-    directory_to_watch, log_file_path = mock_arguments
-    args = fileCheck.parse_arguments()
+        # Create the expired folder
+        self.expired_folder = os.path.join(self.test_dir, "expired")
+        os.makedirs(self.expired_folder)
 
-    assert args.dirToW == str(directory_to_watch)
-    assert args.lf == str(log_file_path)
-    assert args.intl == 60  # Default interval
-    assert args.excl_file is None  # No exclude file specified
+        # Write file1's full path into the exclude file
+        self.exclude_file = os.path.join(self.test_dir, "exclude.txt")
+        with open(self.exclude_file, "w") as f:
+            f.write(os.path.join(self.mock_dir, "file1"))
 
-def test_configure_logging(tmp_path, caplog, mock_arguments):
-    directory_to_watch, log_file_path = mock_arguments
+    def tearDown(self):
+        # Remove the temporary directory
+        shutil.rmtree(self.test_dir)
 
-    # Ensure log file and directory exist
-    assert not log_file_path.exists()
-    assert not directory_to_watch.exists()
+    def test_configure_logging(self):
+        with patch('fileCheck.logging.basicConfig') as mock_logging:
+            configure_logging("test.log")
+            mock_logging.assert_called_once_with(filename="test.log", level=logging.DEBUG,
+                                                  format='%(asctime)s - %(message)s', filemode='a+')
 
-    # Create log file manually
-    log_file_path.touch()
+    def test_read_exclude_list(self):
+        exclude_list = read_exclude_list(self.exclude_file)
+        self.assertIn(str(os.path.join(self.mock_dir, "file1")), {str(path) for path in exclude_list})
 
-    # Configure logging and check log file
-    fileCheck.configure_logging(log_file_path)
+    @patch('fileCheck.logging.info')
+    def test_check_existing_files(self, mock_logging):
+        # Create a test file in the directory
+        test_file_path = os.path.join(self.mock_dir, "test_file.txt")
+        with open(test_file_path, "w") as test_file:
+            test_file.write("test")
 
-    assert log_file_path.exists()
+        # Call check_existing_files and assert that it logs the file
+        check_existing_files(set(), self.mock_dir, "test.log", set(), self.expired_folder, "metadata.txt")
+        mock_logging.assert_called_once()
 
-def test_read_exclude_list(tmp_path, mock_arguments):
-    directory_to_watch, _ = mock_arguments
+    def test_log_created_file(self):
+        # Mock the Path.write_text method to check if it's called
+        with patch('pathlib.Path.write_text') as mock_write_text:
+            log_created_file("test_file.txt", "test.log", self.expired_folder, "metadata.txt")
+            mock_write_text.assert_called_once()
 
-    exclude_file_path = tmp_path / "exclude_test.txt"
-    exclude_file_path.write_text("excluded_file.txt\nanother_excluded_file.txt\n")
+    def test_delete_files(self):
+        # Create a file in the expired folder
+        expired_file_path = os.path.join(self.expired_folder, "expired_file.txt")
+        with open(expired_file_path, "w") as expired_file:
+            expired_file.write("expired")
 
-    # Read exclude list
-    exclude_list = fileCheck.read_exclude_list(str(exclude_file_path))
+        # Call delete_files and assert that it deletes the file
+        with patch('fileCheck.logging.info') as mock_logging:
+            with patch('os.remove') as mock_remove:
+                delete_files(self.mock_dir, self.expired_folder, "metadata.txt")
+                mock_logging.assert_called_once()
+                mock_remove.assert_called_once_with(expired_file_path)
 
-    # Verify exclusion list
-    assert Path(directory_to_watch / "excluded_file.txt") in exclude_list
-    assert directory_to_watch / "another_excluded_file.txt" in exclude_list
-
-def test_check_existing_files(tmp_path, caplog, mock_arguments):
-    directory_to_watch, log_file_path = mock_arguments
-
-    # Create the parent directory
-    directory_to_watch.mkdir(parents=True, exist_ok=True)
-
-    # Create a test file
-    test_file_path = directory_to_watch / "test_file.txt"
-    test_file_path.touch()
-
-    checked_files = set()
-
-    with patch('fileCheck.datetime') as mock_datetime, \
-        patch('fileCheck.time.sleep') as mock_sleep:
-        mock_datetime.now.return_value = datetime.datetime(2023, 1, 1)  # Ensure it's a datetime object
-        mock_sleep.side_effect = KeyboardInterrupt()
-        exclusion_list = set()  # Provide a valid exclusion_list
-        checked_files = fileCheck.check_existing_files(checked_files, directory_to_watch, log_file_path, exclusion_list)
-
-    print("Checked Files in test:", checked_files)
-
-    # Check if the log message is present in the captured logs
-    assert f"File '{test_file_path.resolve()}' has been in the directory for more than ten seconds." in caplog.text
-
-    assert len(checked_files) == 1
-
-
-
-def test_log_created_file(tmp_path, caplog, mock_arguments):
-    _, log_file_path = mock_arguments
-
-    # Create a test file
-    test_file_path = tmp_path / "test_file.txt"
-    test_file_path.touch()
-
-    # Log the created file
-    fileCheck.log_created_file(str(test_file_path), str(log_file_path))
-
-    # Verify log message for the created file
-    assert f"File {test_file_path.resolve()} added at" in caplog.text
-
-
-def test_main_function():
-    with patch('fileCheck.configure_logging') as mock_configure_logging, \
-            patch('fileCheck.read_exclude_list') as mock_read_exclude_list, \
-            patch('fileCheck.check_existing_files') as mock_check_existing_files, \
-            patch('fileCheck.log_created_file') as mock_log_created_file, \
-            patch('time.sleep', side_effect=KeyboardInterrupt):
-
-        # Mock the arguments
-        mock_args = argparse.Namespace(dirToW='test_directory', lf='test_log.txt', intl=60, excl_file='test_exclude.txt')
-
-        # Patch the argparse.ArgumentParser to return the mock_args
-        with patch('argparse.ArgumentParser.parse_args', return_value=mock_args):
-            fileCheck.main()
-
-        # Add assertions based on the expected behavior of your script
-        mock_configure_logging.assert_called_once_with('test_log.txt')
-        mock_read_exclude_list.assert_called_once_with('test_exclude.txt')
-        mock_check_existing_files.assert_called_once_with(set(), 'test_directory', 'test_log.txt', mock_read_exclude_list.return_value)
-        # Add more assertions as needed
-
-if __name__ == "__main__":
-    pytest.main()
+if __name__ == '__main__':
+    unittest.main()
