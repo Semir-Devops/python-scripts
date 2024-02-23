@@ -20,7 +20,16 @@ to run this script in the background, configure the file as needed.
 <h2>How to test the script:</h2>
 To test the fileCheck.py script, I have created a test script.<br/>
 This test is using Pytest testing framework to aid in testing the script before deploying to a production environment.<br/>
-To run the test against the fileCheck, you must:
+The test script fileCheck_test.py uses a built-in library called unittest,<br/>
+& it a creates mock directory to test the functionality of the code!<br/>
+To run the test, make sure the fileCheck.py & fileCheck_test.py are in the same directory and run the following:
+
+
+```
+python3 fileCheck_test.py
+```
+
+To run the test against the fileCheck using pytest, you must:
  
  - You must install the pytest framework using the pip installation package
  - use pytest CLI commands to run the test (preferably have both scripts in the same directory)
@@ -30,8 +39,7 @@ Pip installation (Linux & with admin permissions):
 apt install python3-pip
 ```
 
-
-PyTest installation (Linux & with admin permissions):
+PyTest installation (Linux & with admin previleges):
 ```
 pip install pytest
 ```
