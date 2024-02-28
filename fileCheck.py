@@ -28,7 +28,7 @@ def parse_arguments():
     parser.add_argument("--metadata-file", "-meta", type=str, required=True, dest="meta_file",
                         help="metadata file to help delete expired files")
 
-    return parser.parse_args()
+    return parser.parse_args([])
 
 def configure_logging(log_file_path):
     logging.basicConfig(filename=log_file_path, level=logging.DEBUG,
@@ -41,6 +41,7 @@ def configure_logging(log_file_path):
     formatter = logging.Formatter('%(asctime)s - %(message)s')
     console_handler.setFormatter(formatter)
     logging.getLogger().addHandler(console_handler)
+
 
 def read_exclude_list(exclude_file):
     exclude_list = set()
