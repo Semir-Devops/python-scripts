@@ -12,6 +12,7 @@ import datetime
 import logging
 from pathlib import Path
 import argparse
+import shutil
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='directory tree & file logging')
@@ -28,7 +29,7 @@ def parse_arguments():
     parser.add_argument("--metadata-file", "-meta", type=str, required=True, dest="meta_file",
                         help="metadata file to help delete expired files")
 
-    return parser.parse_args([])
+    return parser.parse_args()
 
 def configure_logging(log_file_path):
     logging.basicConfig(filename=log_file_path, level=logging.DEBUG,
@@ -41,7 +42,6 @@ def configure_logging(log_file_path):
     formatter = logging.Formatter('%(asctime)s - %(message)s')
     console_handler.setFormatter(formatter)
     logging.getLogger().addHandler(console_handler)
-
 
 def read_exclude_list(exclude_file):
     exclude_list = set()
@@ -62,8 +62,11 @@ def check_existing_files(checked_files, directory_to_watch, log_file_path, exclu
     # Set to store files in directory
     current_files = set()
     for root, subdirs, files in os.walk(directory_to_watch_path):
+        print(f"Files: {files}")
         for filename in files:
             file_path = os.path.join(root, filename)
+            print(f"Processing file: {file_path}")
+
             current_files.add(file_path)
 
             try:
@@ -76,35 +79,40 @@ def check_existing_files(checked_files, directory_to_watch, log_file_path, exclu
             if (int(time_difference.total_seconds()) > 10 and full_path not in checked_files and full_path not in exclusion_list):
                 log_msg = f"File '{full_path}' has been in the directory for more than ten seconds."
                 logging.info(log_msg)
-                checked_files.add(full_path)
-                log_created_file(full_path, log_file_path, exp_folder, meta_file)
+                checked_files.add(os.path.abspath(full_path))
+                copy_to_expired_folder(full_path, exp_folder, meta_file)
+                log_created_file(full_path, log_file_path)
 
     return checked_files
 
-def log_created_file(file_path, lf, exp_folder, meta_file):
+def log_created_file(file_path, lf):
     current_time = datetime.datetime.now()
     log_message = f"File {file_path} added at {current_time}"
+    logging.info(log_message)
+
+def copy_to_expired_folder(file_path, exp_folder, meta_file):
+    current_time = datetime.datetime.now()
     log_timestamp = current_time.strftime("%Y.%m.%d_%H.%M.%S.%f")
 
     try:
-        logging.info(log_message)
         # Copy the file to the expired files folder
         expired_file_path = Path(exp_folder) / f"{log_timestamp}_{Path(file_path).stem}.txt"
-        Path(expired_file_path).write_text(f"{file_path}\n")
+        with open(expired_file_path, 'w') as expired_file:
+            expired_file.write(str(file_path) + '\n')
 
         # Write to metadata file
         with open(meta_file, 'a') as f:
             f.write(f"{Path(expired_file_path).name}, {file_path}\n")
 
     except Exception as e:
-        print(f"Error logging message: {e}")
+        print(f"Error copying file: {e}")
 
 def delete_files(directory_to_watch, exp_folder, meta_file):
     checked_files = set()
-    for root, subdirs, files in os.walk(directory_to_watch):
-        for filename in files:
-            file_path = os.path.join(root, filename)
-            checked_files.add(file_path)
+    with open(meta_file, 'r') as f:
+        for line in f:
+            _, checked_file_path = line.strip().split(', ')
+            checked_files.add(checked_file_path)
 
     expired_files = os.listdir(exp_folder)
     for expired_file in expired_files:
@@ -126,6 +134,7 @@ def delete_files(directory_to_watch, exp_folder, meta_file):
                         if expired_file in line:
                             continue
                         f.write(line)
+
 
 def main():
     args = parse_arguments()
