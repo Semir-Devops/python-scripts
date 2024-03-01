@@ -62,10 +62,8 @@ def check_existing_files(checked_files, directory_to_watch, log_file_path, exclu
     # Set to store files in directory
     current_files = set()
     for root, subdirs, files in os.walk(directory_to_watch_path):
-        print(f"Files: {files}")
         for filename in files:
             file_path = os.path.join(root, filename)
-            print(f"Processing file: {file_path}")
 
             current_files.add(file_path)
 
@@ -79,7 +77,7 @@ def check_existing_files(checked_files, directory_to_watch, log_file_path, exclu
             if (int(time_difference.total_seconds()) > 10 and full_path not in checked_files and full_path not in exclusion_list):
                 log_msg = f"File '{full_path}' has been in the directory for more than ten seconds."
                 logging.info(log_msg)
-                checked_files.add(os.path.abspath(full_path))
+                checked_files.add(full_path)  # Add full path to checked_files
                 copy_to_expired_folder(full_path, exp_folder, meta_file)
                 log_created_file(full_path, log_file_path)
 
@@ -109,10 +107,10 @@ def copy_to_expired_folder(file_path, exp_folder, meta_file):
 
 def delete_files(directory_to_watch, exp_folder, meta_file):
     checked_files = set()
-    with open(meta_file, 'r') as f:
-        for line in f:
-            _, checked_file_path = line.strip().split(', ')
-            checked_files.add(checked_file_path)
+    for root, subdirs, files in os.walk(directory_to_watch):
+        for filename in files:
+            file_path = os.path.join(root, filename)
+            checked_files.add(file_path)
 
     expired_files = os.listdir(exp_folder)
     for expired_file in expired_files:
@@ -134,8 +132,6 @@ def delete_files(directory_to_watch, exp_folder, meta_file):
                         if expired_file in line:
                             continue
                         f.write(line)
-
-
 def main():
     args = parse_arguments()
 
