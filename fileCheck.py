@@ -12,7 +12,6 @@ import datetime
 import logging
 from pathlib import Path
 import argparse
-import shutil
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='directory tree & file logging')
@@ -54,7 +53,7 @@ def read_exclude_list(exclude_file):
             print(f"Error reading exclude file: {e}")
     return exclude_list
 
-def check_existing_files(checked_files, directory_to_watch, log_file_path, exclusion_list, exp_folder, meta_file):
+def check_existing_files(directory_to_watch, log_file_path, exclusion_list, exp_folder, meta_file, processed_files_file):
     current_time = datetime.datetime.now()
 
     directory_to_watch_path = Path(directory_to_watch).resolve()
@@ -63,9 +62,12 @@ def check_existing_files(checked_files, directory_to_watch, log_file_path, exclu
     current_files = set()
     for root, subdirs, files in os.walk(directory_to_watch_path):
         for filename in files:
-            file_path = os.path.join(root, filename)
+            file_path = Path(os.path.join(root, filename)).resolve()
+            print("Processing file:", file_path)
 
-            current_files.add(file_path)
+            # Check if file has already been processed
+            if file_path in processed_files_file:
+                continue
 
             try:
                 file_creation_time = datetime.datetime.fromtimestamp(os.path.getctime(file_path))
@@ -73,15 +75,19 @@ def check_existing_files(checked_files, directory_to_watch, log_file_path, exclu
                 continue
 
             time_difference = current_time - file_creation_time
-            full_path = Path(file_path).resolve()
-            if (int(time_difference.total_seconds()) > 10 and full_path not in checked_files and full_path not in exclusion_list):
-                log_msg = f"File '{full_path}' has been in the directory for more than ten seconds."
+            if (int(time_difference.total_seconds()) > 10 and file_path not in exclusion_list):
+                log_msg = f"File '{file_path}' has been in the directory for more than ten seconds."
                 logging.info(log_msg)
-                checked_files.add(full_path)  # Add full path to checked_files
-                copy_to_expired_folder(full_path, exp_folder, meta_file)
-                log_created_file(full_path, log_file_path)
+                copy_to_expired_folder(file_path, exp_folder, meta_file)
+                log_created_file(file_path, log_file_path)
+                # Add file to processed files list
+                processed_files_file.add(file_path)
 
-    return checked_files
+    # Write updated processed files list back to file
+    with open("processed_files.txt", 'w') as f:
+        for file_path in processed_files_file:
+            f.write(f"{file_path}\n")
+
 
 def log_created_file(file_path, lf):
     current_time = datetime.datetime.now()
@@ -97,6 +103,7 @@ def copy_to_expired_folder(file_path, exp_folder, meta_file):
         expired_file_path = Path(exp_folder) / f"{log_timestamp}_{Path(file_path).stem}.txt"
         with open(expired_file_path, 'w') as expired_file:
             expired_file.write(str(file_path) + '\n')
+        print(f"Copied {file_path} to {expired_file_path}")
 
         # Write to metadata file
         with open(meta_file, 'a') as f:
@@ -106,32 +113,36 @@ def copy_to_expired_folder(file_path, exp_folder, meta_file):
         print(f"Error copying file: {e}")
 
 def delete_files(directory_to_watch, exp_folder, meta_file):
-    checked_files = set()
-    for root, subdirs, files in os.walk(directory_to_watch):
-        for filename in files:
-            file_path = os.path.join(root, filename)
-            checked_files.add(file_path)
+    # Read the processed files list
+    processed_files_file = set()
+    if Path("processed_files.txt").is_file():
+        with open("processed_files.txt", 'r') as f:
+            processed_files_file.update(Path(line.strip()).resolve() for line in f)
 
-    expired_files = os.listdir(exp_folder)
-    for expired_file in expired_files:
-        expired_file_path = os.path.join(exp_folder, expired_file)
-        if os.path.isfile(expired_file_path):
-            # Read the content of the expired file
-            with open(expired_file_path, 'r') as f:
-                expired_content = f.read().strip()
+    # Read the metadata file to get the list of expired files
+    expired_files = {}
+    with open(meta_file, 'r') as f:
+        for line in f:
+            expired_file, original_file = line.strip().split(", ")
+            expired_files[expired_file] = original_file
 
-            # Check if the expired content (full path) is not in the checked_files (full path of dirToW files)
-            if expired_content not in checked_files:
+    # Check if expired files still exist in the original directory
+    for expired_file, original_file in expired_files.items():
+        if not Path(original_file).is_file():
+            # Delete the expired file and remove its entry from the metadata file
+            expired_file_path = Path(exp_folder) / expired_file
+            if expired_file_path.is_file():
                 os.remove(expired_file_path)
                 logging.info(f"Deleted expired file: {expired_file_path}")
+            # Remove the entry from the metadata file
+            with open(meta_file, 'r') as f:
+                lines = f.readlines()
+            with open(meta_file, 'w') as f:
+                for line in lines:
+                    if expired_file in line:
+                        continue
+                    f.write(line)
 
-                with open(meta_file, 'r') as f:
-                    lines = f.readlines()
-                with open(meta_file, 'w') as f:
-                    for line in lines:
-                        if expired_file in line:
-                            continue
-                        f.write(line)
 def main():
     args = parse_arguments()
 
@@ -139,9 +150,13 @@ def main():
     configure_logging(args.lf)
 
     # Initial check for existing files
-    checked_files = set()
+    processed_files_file = set()
+    if Path("processed_files.txt").is_file():
+        with open("processed_files.txt", 'r') as f:
+            processed_files_file.update(Path(line.strip()).resolve() for line in f)
+
     exclude_list = read_exclude_list(args.excl_file)
-    checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file)
+    check_existing_files(args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file, processed_files_file)
     print(f"Log file path: {args.lf}")
 
     try:
@@ -149,7 +164,7 @@ def main():
             # Periodic check, specify in argument, default 60 seconds
             time.sleep(args.intl)
             exclude_list = read_exclude_list(args.excl_file)
-            checked_files = check_existing_files(checked_files, args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file)
+            check_existing_files(args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file, processed_files_file)
             delete_files(args.dirToW, args.exp_folder, args.meta_file)
             print("another loop")
     except KeyboardInterrupt:
