@@ -86,7 +86,7 @@ def check_existing_files(directory_to_watch, log_file_path, exclusion_list, exp_
 
 def log_created_file(file_path, lf, exp_folder, meta_file):
     current_time = datetime.datetime.now()
-    log_message = f"File {file_path} added at {current_time}"
+    log_message = f"File '{file_path}' added at {current_time}"
     log_timestamp = current_time.strftime("%Y.%m.%d_%H.%M.%S.%f")
 
     try:
