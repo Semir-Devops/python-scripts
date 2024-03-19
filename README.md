@@ -15,6 +15,16 @@ To run any script as a service/daemon in a linux machine,<br/>
 I attached a mock service file that must be added into your systemd file system<br/>
 to run this script in the background, configure the file as needed.
 
+On your linux machine (with admin previleges), navigate from the root directory to:
+
+```
+cd /lib/systemd/system
+```
+
+Then you will create a file within this directory (use whatever editor you are comfortable with).<br/>
+Then copy the contents of the fileCheck.service file in my repository to the file you just created.<br/>
+You must edit this line in the file
+
 <hr/>
 
 <h2>How to test the script:</h2>
