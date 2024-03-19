@@ -15,13 +15,13 @@ To run any script as a service/daemon in a linux machine,<br/>
 I attached a mock service file that must be added into your systemd file system<br/>
 to run this script in the background, configure the file as needed.
 
-On your linux machine (with admin previleges), navigate from the root directory to:
+On your linux machine (with admin privileges), navigate from the root directory to:
 
 ```
 cd /lib/systemd/system
 ```
 
-Then you will create a file within this directory (use whatever editor you are comfortable with).<br/>
+Then you will create a file with extension ".service" within this directory (use whatever editor you are comfortable with).<br/>
 Then copy the contents of the fileCheck.service file in my repository to the file you just created.<br/>
 You must edit this line in the file to include the necessary arguments to run the python script
 
@@ -43,6 +43,18 @@ I explain the functions of these further in fileCheck.py in the comments at the 
 
 > [!TIP]
 > I recommend you have all files and directories under one main directory for simplicity.
+
+### You are now ready to run your Service/Daemon
+
+With admin privileges, run the following commands one at at time:
+```
+systemctl daemon-reload
+systemctl start name_of_service.service
+systemctl status name_of_service.service
+```
+The status command should show the following "active status" menaing it is working & currently running.
+
+<img width="894" alt="status_fileCheck_service" src="https://github.com/Semir-Devops/python-scripts/assets/144611511/12201c15-201e-47c5-b603-cfeb5ed39b8f">
 
 <hr/>
 
