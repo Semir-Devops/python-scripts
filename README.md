@@ -23,7 +23,26 @@ cd /lib/systemd/system
 
 Then you will create a file within this directory (use whatever editor you are comfortable with).<br/>
 Then copy the contents of the fileCheck.service file in my repository to the file you just created.<br/>
-You must edit this line in the file
+You must edit this line in the file to include the necessary arguments to run the python script
+
+
+> /path/to/script/name_of_script.py "fileCheck" -d "/path/to/DirectoryToWatch/" -lf "/path/to/logfile/name-of-file.*"<br/>
+> -ef "/path/to/excludeFile/name-of-file" --interval NumofSecs(int) -exp "/path/to/expirey-folder" -meta "/path/to/meta-file"
+
+
+I will explain the arguments(abbreviations explained as well):<br/>
+<b>path/to/script/name_of_Script/py:</b> Where fileCheck.py resides on your machine.<br/>
+<b>-d (--directory):</b> The directory fileCheck.py will perform on.<br/>
+<b>-lf (--log-file):</b> The location of your log file.<br/>
+<b>-ef (--exclude-file):</b> The location of your exclusion list.<br/>
+<b>-i (--interval):</b> How often (in seconds) should fileCheck.py execute.<br/>
+<b>-exp (--expired-folder):</b> The location of the expired folder.<br/>
+<b>-meta (--meta-file):</b> The location of your metadata file.<br/>
+
+I explain the functions of these further in fileCheck.py in the comments at the very top.
+
+> [!TIP]
+> I recommend you have all files and directories under one main directory for simplicity.
 
 <hr/>
 
