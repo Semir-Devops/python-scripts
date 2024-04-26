@@ -1,3 +1,5 @@
+#A simple SFTP connection from a local machine to an amazon linuz EC2 instance
+
 import paramiko
 import os
 
