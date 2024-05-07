@@ -1,6 +1,8 @@
 '''
-This python script runs an AWS Lambda function
-
+This python script runs an AWS Lambda function that uses SFTP
+to send files securely from an EC2 instance into a S3 Bucket.
+I have attached a paramiko library with all its dependencies
+to be able to run this function named "SFTP-ParamikoLayer.zip"
 '''
 
 import logging
