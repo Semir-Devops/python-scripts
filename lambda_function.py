@@ -13,14 +13,14 @@ import os
 
 def lambda_handler(event, context):
     S3Client = boto3.client('s3')
-    bucket_name = "semir-test"
-    S3Client.download_file('semir-test', 'priv-key/semir-Lambda.pem', '/tmp/keyname.pem')
+    bucket_name = "name-of-s-bucket"
+    S3Client.download_file('name-of-bucket', 'key-path-stored-on-S3', '/tmp/keyname.pem') #'/tmp/keyname.pem' parameter stores key within Lambda environment
     pem_key = paramiko.RSAKey.from_private_key_file("/tmp/keyname.pem")
     
     #Create a new client
     SSH_Client = paramiko.SSHClient()
     SSH_Client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    host ="54.198.63.112"
+    host ="###.###.###.###" #thi is IP address of the host EC2 instance
     logging.basicConfig(level=logging.DEBUG)
     SSH_Client.connect(hostname = host, username = "ec2-user", pkey = pem_key)
     
@@ -28,7 +28,7 @@ def lambda_handler(event, context):
     SFTP_Client = SSH_Client.open_sftp()
     
     # Path to the source directory on the SFTP server
-    s_path = '/home/ec2-user/source_dir/'
+    s_path = '/home/ec2-user/source_dir/' #this can be any directory, this is purely an example
 
     # Transfer all files from the source directory
     for filename in SFTP_Client.listdir(s_path):
@@ -36,6 +36,7 @@ def lambda_handler(event, context):
         local_file_path = '/tmp/' + filename
         SFTP_Client.get(remote_file_path, local_file_path)
         S3Client.upload_file(local_file_path, bucket_name, 'sftp-files/' + filename)
+        #'sftp-files' is the directory where files transferred will be directed on S3 bucket, must be created on S3 bucket
         SFTP_Client.remove(remote_file_path)
 
     # Close the SFTP and SSH connections
