@@ -93,3 +93,21 @@ pytest name_of_test_script_test.py
 > [!NOTE]  
 > It is a good practice to name the test script after the script you are running the test on,<br/>
 >followed by "_test.py", to allow you to search for pytest scripts efficiently when needed.
+
+<hr/>
+
+<h2>Lambda Function</h2>
+
+To run the Lambda function in the CLI:
+```
+aws lambda invoke --function-name name-f-function --cli-binary-format raw-in-base64-out --payload file://test-event.json response.log
+```
+
+<b>--function-name:</b> The name of the function created within the AWS account.<br/>
+<b>--payload:</b> If you want to pass paramters to the function, this is a method of doing so, usually done by referring to a file<br/>
+<b>--cli-binary-format:</b>How you would like the json payload file to be parsed (which is raw json)<br/>
+<b>response.log:</b>The results of the execution is written to this file (can be any oher file, this is just an example<br/>
+
+> [!NOTE]  
+> The reason we use cli-binary-format is because on AWSCLIv2,
+> the payload file is parsed differently,<br/> this ensures it is parsed correctly by Lambda
