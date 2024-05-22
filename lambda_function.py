@@ -6,7 +6,7 @@ to be able to run this function named "SFTP-ParamikoLayer.zip"
 Update:
 The parameters are being passed from a config.json file,
 some of them are passed from the payload feature on cli
-OR as a test-event parameter on the console
+which is equivalent to a test-event parameter on the console
 '''
 
 import logging
@@ -28,6 +28,7 @@ def lambda_handler(event, context):
         # Read source and dest path from event payload
         source_path = event['source_path']
         dest_path = event['dest_path']
+        username = event['username']
         
         # Initialize S3 client
         s3_client = boto3.client('s3')
@@ -38,7 +39,6 @@ def lambda_handler(event, context):
         
         host = config['host']
         port = config.get('port', 22)  # Default to port 22 if not specified
-        username = config['username']
         private_key_path = config['key_path']  # Ensure the key name matches the JSON structure
         
         # Log the loaded configuration
@@ -80,7 +80,7 @@ def lambda_handler(event, context):
 
         return {
             'statusCode': 200,
-            'body': json.dumps('SFTP file transfer completed successfully')
+            'body': json.dumps('SFTP file transfer completed successfully\n')
         }
     except Exception as e:
         logger.error(f"Error occurred: {str(e)}")
