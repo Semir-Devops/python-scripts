@@ -9,17 +9,18 @@ some of them are passed from the payload feature on cli
 which is equivalent to a test-event parameter on the console
 '''
 
-import logging
 import json
 import paramiko
 import boto3
 import os
-
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger()
+import io
+import sys
 
 def lambda_handler(event, context):
+    # Create a StringIO buffer to capture print statements
+    old_stdout = sys.stdout
+    sys.stdout = buffer = io.StringIO()
+    
     try:
         # Hardcoded bucket name and JSON file key for testing
         bucket_name = "semir-test"
@@ -41,8 +42,8 @@ def lambda_handler(event, context):
         port = config.get('port', 22)  # Default to port 22 if not specified
         private_key_path = config['key_path']  # Ensure the key name matches the JSON structure
         
-        # Log the loaded configuration
-        logger.debug(f"Loaded config from S3: {json.dumps(config)}")
+        # Print the loaded configuration
+        print(f"Loaded config from S3: {json.dumps(config, indent=2)}")
         
         # Download the private key to /tmp directory
         local_key_path = '/tmp/key.pem'
@@ -56,35 +57,54 @@ def lambda_handler(event, context):
         ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
         # Connect to the SFTP server
-        logger.debug(f"Connecting to {host}:{port} as {username}...")
+        print(f"Connecting to {host}:{port} as {username}...")
         ssh_client.connect(hostname=host, port=port, username=username, pkey=pem_key)
         
         # Create an SFTP client
         sftp_client = ssh_client.open_sftp()
         
         # Transfer files from the source directory directly to S3
-        logger.debug(f"Listing files in {source_path}...")
+        print(f"Listing files in {source_path}...")
         for filename in sftp_client.listdir(source_path):
             remote_file_path = os.path.join(source_path, filename)
-            logger.debug(f"Streaming {filename} to S3...")
+            print(f"Streaming {filename} to S3...")
             
             with sftp_client.file(remote_file_path, 'rb') as remote_file:
                 s3_client.upload_fileobj(remote_file, bucket_name, os.path.join(dest_path, filename))
                 
             sftp_client.remove(remote_file_path)
-            logger.info(f"Transferred and removed {filename} from SFTP server.")
+            print(f"Transferred and removed {filename} from SFTP server.")
         
         # Close the SFTP and SSH connections
         sftp_client.close()
         ssh_client.close()
 
-        return {
+        # Get the captured output
+        output = buffer.getvalue()
+        
+        # Reset stdout
+        sys.stdout = old_stdout
+
+        # Format the output response
+        response = {
             'statusCode': 200,
-            'body': json.dumps('SFTP file transfer completed successfully\n')
+            'body': 'SFTP file transfer completed successfully',
+            'logs': output
         }
+        return json.dumps(response, indent=2)
     except Exception as e:
-        logger.error(f"Error occurred: {str(e)}")
-        return {
+        # Get the captured output
+        output = buffer.getvalue()
+        
+        # Reset stdout
+        sys.stdout = old_stdout
+
+        print(f"Error occurred: {str(e)}")
+        
+        # Format the error response
+        response = {
             'statusCode': 500,
-            'body': json.dumps(f"Error: {str(e)}")
+            'error': str(e),
+            'logs': output
         }
+        return json.dumps(response, indent=2)
