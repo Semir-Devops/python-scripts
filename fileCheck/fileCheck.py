@@ -34,16 +34,48 @@ def configure_logging(log_file_path):
     console_handler.setFormatter(formatter)
     logging.getLogger().addHandler(console_handler)
 
-def read_exclude_list(exclude_file):
+def read_exclude_list(exclude_file, meta_file, exp_folder, log_file):
     exclude_list = set()
     if exclude_file:
         try:
             with open(exclude_file, 'r') as file:
-                # Read full file paths and resolve them
-                exclude_list.update(Path(line.strip()).resolve() for line in file)
+                for line in file:
+                    file_path = Path(line.strip()).resolve()
+                    exclude_list.add(file_path)
+                    remove_file_entries(file_path, meta_file, exp_folder, log_file)
         except Exception as e:
             print(f"Error reading exclude file: {e}")
     return exclude_list
+
+def remove_file_entries(file_path, meta_file, exp_folder, log_file):
+    # Remove entry from metadata file
+    if Path(meta_file).is_file():
+        with open(meta_file, 'r') as f:
+            lines = f.readlines()
+        with open(meta_file, 'w') as f:
+            for line in lines:
+                if str(file_path) not in line:
+                    f.write(line)
+
+    # Remove file from expired folder
+    expired_files = os.listdir(exp_folder)
+    for expired_file in expired_files:
+        expired_file_path = os.path.join(exp_folder, expired_file)
+        if os.path.isfile(expired_file_path):
+            with open(expired_file_path, 'r') as f:
+                expired_content = f.read().strip()
+            if expired_content == str(file_path):
+                os.remove(expired_file_path)
+                logging.info(f"Deleted expired file: {expired_file_path}")
+
+    # Remove entry from log file
+    if Path(log_file).is_file():
+        with open(log_file, 'r') as f:
+            lines = f.readlines()
+        with open(log_file, 'w') as f:
+            for line in lines:
+                if str(file_path) not in line:
+                    f.write(line)
 
 def check_existing_files(directory_to_watch, log_file_path, exclusion_list, exp_folder, meta_file):
     current_time = datetime.datetime.now()
@@ -141,8 +173,7 @@ def main():
     configure_logging(args.lf)
 
     # Initial check for existing files
-    checked_files = set()
-    exclude_list = read_exclude_list(args.excl_file)
+    exclude_list = read_exclude_list(args.excl_file, args.meta_file, args.exp_folder, args.lf)
     check_existing_files(args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file)
     print(f"Log file path: {args.lf}")
 
@@ -150,7 +181,7 @@ def main():
         while True:
             # Periodic check, specify in argument, default 60 seconds
             time.sleep(args.intl)
-            exclude_list = read_exclude_list(args.excl_file)
+            exclude_list = read_exclude_list(args.excl_file, args.meta_file, args.exp_folder, args.lf)
             check_existing_files(args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file)
             delete_files(args.dirToW, args.exp_folder, args.meta_file)
             print("another loop")
