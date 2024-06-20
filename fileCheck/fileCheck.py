@@ -1,16 +1,3 @@
-'''
-    This program is designed to walk a directory tree
-    & check each file within it to see if it has been in the directory
-    for more than a specified time, if the file meets the condition, three events are executed:
-    1.the event is logged with the timestamp
-    2. The file path is taken and written to a file created in the expired-folder, named with a timestamp format
-    3. The file path in the directory_To_watch is written along with the corresponding filename in expired-folder inside a metadata-file
-    The program can delete files in the expired-folder when files in the directory_to_watch are deleted as well,
-    along with its reference in the metadata-file
-    This program is run using the CLI & its required arguments.
-    Language: Python
-'''
-
 import os
 import time
 import datetime
@@ -137,6 +124,18 @@ def delete_files(directory_to_watch, exp_folder, meta_file):
 
 def main():
     args = parse_arguments()
+
+    # Ensure the directories and files specified in arguments exist
+    Path(args.dirToW).mkdir(parents=True, exist_ok=True)
+    Path(args.exp_folder).mkdir(parents=True, exist_ok=True)
+    Path(args.lf).parent.mkdir(parents=True, exist_ok=True)
+
+    if args.excl_file:
+        Path(args.excl_file).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.excl_file).touch(exist_ok=True)
+
+    Path(args.meta_file).parent.mkdir(parents=True, exist_ok=True)
+    Path(args.meta_file).touch(exist_ok=True)
 
     # Configure logging, logs are appended to a file
     configure_logging(args.lf)
