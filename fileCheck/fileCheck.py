@@ -19,6 +19,8 @@ def parse_arguments():
                         help="folder to move expired files to")
     parser.add_argument("--metadata-file", "-meta", type=str, required=True, dest="meta_file",
                         help="metadata file to help delete expired files")
+    parser.add_argument("--maxfileage", "-age", type=int, required=True, dest="maxfileage",
+                        help="The time when a file is considered aged")
 
     return parser.parse_args()
 
@@ -77,14 +79,20 @@ def remove_file_entries(file_path, meta_file, exp_folder, log_file):
                 if str(file_path) not in line:
                     f.write(line)
 
-def check_existing_files(directory_to_watch, log_file_path, exclusion_list, exp_folder, meta_file):
+def check_files(directory_to_watch, log_file_path, exclusion_list, exp_folder, meta_file, file_timestamps, maxfileage):
     current_time = datetime.datetime.now()
 
     # Create a set to store file paths from the metadata file
     processed_files = set()
     if Path(meta_file).is_file():
         with open(meta_file, 'r') as f:
-            processed_files.update(Path(line.strip().split(", ")[1]).resolve() for line in f)
+            for line in f:
+                parts = line.strip().split(", ")
+                if len(parts) == 2:
+                    timestamp = parts[0]
+                    file_path = Path(parts[1]).resolve()
+                    processed_files.add(file_path)
+                    file_timestamps[file_path] = datetime.datetime.strptime(timestamp, "%Y-%m-%d_%H:%M:%S")
 
     directory_to_watch_path = Path(directory_to_watch).resolve()
 
@@ -95,23 +103,24 @@ def check_existing_files(directory_to_watch, log_file_path, exclusion_list, exp_
             file_path = os.path.join(root, filename)
             current_files.add(file_path)
 
-            try:
-                file_creation_time = datetime.datetime.fromtimestamp(os.path.getctime(file_path))
-            except FileNotFoundError:
-                continue
-
-            time_difference = current_time - file_creation_time
             full_path = Path(file_path).resolve()
-            if (int(time_difference.total_seconds()) > 10 and full_path not in processed_files and full_path not in exclusion_list):
-                log_msg = f"File '{full_path}' has been in the directory for more than ten seconds."
-                logging.info(log_msg)
-                log_created_file(full_path, log_file_path, exp_folder, meta_file)
-                processed_files.add(full_path)
+            if full_path not in exclusion_list:
+                stats = full_path.stat()
+                mtime = datetime.datetime.fromtimestamp(stats.st_mtime)
+                file_creation_time = file_timestamps.get(full_path, mtime)
+                file_timestamps[full_path] = file_creation_time
 
-def log_created_file(file_path, lf, exp_folder, meta_file):
-    current_time = datetime.datetime.now()
-    log_message = f"File '{file_path}' added at {current_time}"
-    log_timestamp = current_time.strftime("%Y.%m.%d_%H.%M.%S.%f")
+                time_difference = current_time - file_creation_time
+
+                if int(time_difference.total_seconds()) > maxfileage and full_path not in processed_files:
+                    log_msg = f"File '{full_path}' has been in the directory for more than ten seconds."
+                    logging.info(log_msg)
+                    log_created_file(full_path, log_file_path, exp_folder, meta_file, file_creation_time)
+                    processed_files.add(full_path)
+
+def log_created_file(file_path, lf, exp_folder, meta_file, creation_time):
+    log_message = f"File '{file_path}' added at {creation_time}"
+    log_timestamp = creation_time.strftime("%Y-%m-%d_%H:%M:%S")
 
     try:
         logging.info(log_message)
@@ -121,7 +130,7 @@ def log_created_file(file_path, lf, exp_folder, meta_file):
 
         # Write to metadata file
         with open(meta_file, 'a') as f:
-            f.write(f"{Path(expired_file_path).name}, {file_path}\n")
+            f.write(f"{log_timestamp}, {file_path}\n")
 
     except Exception as e:
         print(f"Error logging message: {e}")
@@ -173,8 +182,9 @@ def main():
     configure_logging(args.lf)
 
     # Initial check for existing files
+    file_timestamps = {}
     exclude_list = read_exclude_list(args.excl_file, args.meta_file, args.exp_folder, args.lf)
-    check_existing_files(args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file)
+    check_files(args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file, file_timestamps, args.maxfileage)
     print(f"Log file path: {args.lf}")
 
     try:
@@ -182,7 +192,7 @@ def main():
             # Periodic check, specify in argument, default 60 seconds
             time.sleep(args.intl)
             exclude_list = read_exclude_list(args.excl_file, args.meta_file, args.exp_folder, args.lf)
-            check_existing_files(args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file)
+            check_files(args.dirToW, args.lf, exclude_list, args.exp_folder, args.meta_file, file_timestamps, args.maxfileage)
             delete_files(args.dirToW, args.exp_folder, args.meta_file)
             print("another loop")
     except KeyboardInterrupt:
