@@ -14,7 +14,7 @@ def parse_arguments():
     parser.add_argument("--interval", "-i", type=int, default=60, dest="intl",
                         help="interval for periodic checks (in seconds)")
     parser.add_argument("--exclude-file", "-ef", type=str, dest="excl_file",
-                        help="list of files to exclude from fileCheck")
+                        help="list of files or directories to exclude from fileCheck")
     parser.add_argument("--expired-folder", "-exp", type=str, required=True, dest="exp_folder",
                         help="folder to move expired files to")
     parser.add_argument("--metadata-file", "-meta", type=str, required=True, dest="meta_file",
@@ -42,7 +42,11 @@ def read_exclude_list(exclude_file):
         try:
             with open(exclude_file, 'r') as file:
                 for line in file:
-                    exclude_list.add(Path(line.strip()).resolve())
+                    exclude_path = Path(line.strip()).resolve()
+                    exclude_list.add(exclude_path)
+                    if exclude_path.is_dir():
+                        for sub_path in exclude_path.rglob('*'):
+                            exclude_list.add(sub_path)
         except Exception as e:
             print(f"Error reading exclude file: {e}")
     return exclude_list
@@ -69,9 +73,9 @@ def check_files(directory_to_watch, log_file_path, exclusion_list, exp_folder, m
     for root, subdirs, files in os.walk(directory_to_watch_path):
         for filename in files:
             file_path = os.path.join(root, filename)
-            current_files.add(file_path)
-
             full_path = Path(file_path).resolve()
+            current_files.add(full_path)
+
             if full_path not in exclusion_list:
                 stats = full_path.stat()
                 mtime = datetime.datetime.fromtimestamp(stats.st_mtime)
@@ -108,7 +112,7 @@ def delete_files(directory_to_watch, exp_folder, meta_file, log_file):
     for root, subdirs, files in os.walk(directory_to_watch):
         for filename in files:
             file_path = os.path.join(root, filename)
-            checked_files.add(file_path)
+            checked_files.add(Path(file_path).resolve())
 
     # Update metadata file to remove entries for files no longer in directory
     if Path(meta_file).is_file():
@@ -117,7 +121,7 @@ def delete_files(directory_to_watch, exp_folder, meta_file, log_file):
         with open(meta_file, 'w') as f:
             for line in lines:
                 file_path = Path(line.strip().split(", ")[1])
-                if str(file_path.resolve()) in checked_files:
+                if file_path.resolve() in checked_files:
                     f.write(line)
                 else:
                     # Remove the file from expired folder
